@@ -4,6 +4,7 @@
 *.obj
 *.elf
 
+
 # Precompiled Headers
 *.gch
 *.pch
@@ -30,3 +31,11 @@
 
 # Debug files
 *.dSYM/
+
+# kernel module
+*.cmd
+.tmp_versions/
+*.symvers
+*.mod.c
+*.order
+
