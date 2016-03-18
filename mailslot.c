@@ -3,7 +3,9 @@
 #include <linux/slab.h>
 #include <linux/errno.h>
 #include <asm/uaccess.h>
+#include <linux/kdev_t.h>
 #include "mailslot.h"
+
 
 static const char* M_NAME = "mailslot";
 static unsigned int major = 0;
@@ -24,6 +26,7 @@ struct file_operations fops = {
 
 int init_module(void) {
     log_debug("registering module");
+    log_debug("Maximum mailslots allowed: %d", 1 << MINORBITS);
 
     res = register_chrdev(major, M_NAME, &fops);
     if (res < 0) {
