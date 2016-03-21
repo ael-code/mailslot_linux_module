@@ -11,6 +11,7 @@
 static const char* M_NAME = "mailslot";
 static unsigned int major = 0;
 static int res;
+static int MAX_SLOTS = 1 << MINORBITS;
 static void * module_buff;
 static const size_t TOT_BUFF_SIZE = 1024;
 static size_t  last_written_size = 0;
@@ -27,7 +28,7 @@ struct file_operations fops = {
 
 int init_module(void) {
     log_debug("registering module");
-    log_debug("Maximum mailslots allowed: %d", 1 << MINORBITS);
+    log_debug("Maximum mailslots allowed: %d", MAX_SLOTS);
     log_debug("Size of kfifo: %ld", sizeof(struct __kfifo));
     res = register_chrdev(major, M_NAME, &fops);
     if (res < 0) {
