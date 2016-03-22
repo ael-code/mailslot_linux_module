@@ -11,10 +11,11 @@
 static const char* M_NAME = "mailslot";
 static unsigned int major = 0;
 static int res;
-static int MAX_SLOTS = 1 << MINORBITS;
-static void * module_buff;
-static const size_t TOT_BUFF_SIZE = 1024;
-static size_t  last_written_size = 0;
+
+#define MAX_SLOTS (1 << MINORBITS)
+typedef struct kfifo_rec_ptr_2 slot;
+static slot slots[MAX_SLOTS];
+static size_t SLOT_SIZE = 1024;
 
 struct file_operations fops = {
     .read = mailslot_read,
@@ -29,7 +30,6 @@ struct file_operations fops = {
 int init_module(void) {
     log_debug("registering module");
     log_debug("Maximum mailslots allowed: %d", MAX_SLOTS);
-    log_debug("Size of kfifo: %ld", sizeof(struct __kfifo));
     res = register_chrdev(major, M_NAME, &fops);
     if (res < 0) {
         log_err("can’t register char devices driver");
@@ -40,63 +40,82 @@ int init_module(void) {
         log_info("assigned major number: %d", major);
     }
 
-    module_buff = kmalloc(TOT_BUFF_SIZE, GFP_KERNEL);
-    if(!module_buff){
-        log_err("cannot allocate module buffer");
-        return 1;
-    }
-
     return 0;
 }
 
 
-// ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);
 ssize_t mailslot_read(struct file * f, char __user * user, size_t size, loff_t * fpos){
+    int ret;
+    unsigned int copied;
     unsigned minor;
-    unsigned long not_written;
-    size_t resp_size;
+    slot* currSlot;
 
-    log_info("read operation");
     minor = iminor(f->f_inode);
-    log_info("minor %d", minor);
-    log_info("loff_t %lld", *fpos);
-    if(*fpos >= last_written_size)
+    currSlot = slots+minor;
+
+    log_info("Read operation on slot %d", minor);
+
+    if( !kfifo_initialized(slots+minor) ){
+        log_info("Slot %d is not initialized yet", minor);
         return 0;
-    if(size < last_written_size)
-        resp_size = size;
-    else
-        resp_size = last_written_size;
-    not_written = copy_to_user(user, module_buff, resp_size);
-    if(not_written){
-        log_err("cannot copy data from to user space memory %ld", not_written);
+    }
+
+    log_info("next item length: %d", kfifo_peek_len(currSlot));
+    if( kfifo_peek_len(currSlot) > size){
+        log_err("Cannot read mail, destination buffer too short");
         return -EIO;
     }
-    *fpos += resp_size;
-    return resp_size;
+
+    ret = kfifo_to_user(currSlot, user, size, &copied);
+    if(ret){
+        log_err("Error while reading");
+        return ret;
+    }
+    log_info("Copied %d byte to user buffer", copied);
+    return copied;
 }
 
-// ssize_t (*write) (struct file *, const char __user *, size_t, loff_t *);
 ssize_t mailslot_write(struct file * f, const char __user * user, size_t size, loff_t * loff_t){
+    int ret;
+    unsigned int copied;
     unsigned minor;
-    unsigned long not_written;
-    log_info("write operation");
+    slot* currSlot;
+
     minor = iminor(f->f_inode);
-    log_info("minor %d", minor);
-    if(size > TOT_BUFF_SIZE){
-        log_err("cannot handle such a size %ld", size);
-        return -1;
+    currSlot = slots+minor;
+    log_info("Write operation on slot %d, of bytes %u", minor, (unsigned int)size);
+
+    if( !kfifo_initialized(currSlot) ){
+        log_info("Initializing slot: %d", minor);
+        ret = kfifo_alloc(currSlot, SLOT_SIZE, GFP_KERNEL);
+        if(ret){
+            log_err("Cannot allocate new slot");
+            return ret;
+        }
     }
-    not_written = copy_from_user(module_buff, user, size);
-    if(not_written){
-        log_err("cannot copy data from user space memory");
-        return -EIO;
+
+    ret = kfifo_from_user(currSlot, user, size, &copied);
+    if( (!ret) && (!copied) ){
+        log_err("Not enough space available on slot");
+        return -ENOSPC;
     }
-    last_written_size = size;
-    return size;
+    if(ret){
+        log_err("Cannot copy from user space");
+        return ret;
+    }
+    log_info("Copied from user (ret %d), (copied %d)", ret, copied);
+
+    return copied;
 }
 
 
 void cleanup_module(void) {
+    int i = 0;
     log_debug("Removing module");
+    for(i = 0; i < MAX_SLOTS; i++){
+        if( kfifo_initialized(slots+i) )
+            log_debug("Freeing slot number %u", i);
+            kfifo_free(slots+i);
+    }
     unregister_chrdev(major, M_NAME);
 }
