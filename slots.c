@@ -4,9 +4,9 @@ int slot_init(slot_t* slot, size_t slot_size){
     int ret;
 
     kfifo_rec* fifo = &slot->fifo;
-    if( !kfifo_initialized(fifo) ){
+    if( kfifo_initialized(fifo) ){
         log_err("Slot already initialized");
-        return 1;
+        return -1;
     }
 
     log_debug("Initializing kfifo buffer");
@@ -34,10 +34,10 @@ int slot_initialized(slot_t* slot){
     return kfifo_initialized(&slot->fifo);
 }
 
-/**
-int slot_from_user(struct slot, const void __user * buf, size_t len, size_t * copied){
+int slot_from_user(slot_t* slot, const void __user * buf, size_t len, unsigned int* copied){
+    int ret;
 
-    ret = kfifo_from_user(currSlot, user, size, &copied);
+    ret = kfifo_from_user(&slot->fifo, buf, len, copied);
     if( (!ret) && (!copied) ){
         log_err("Not enough space available on slot");
         return -ENOSPC;
@@ -46,7 +46,18 @@ int slot_from_user(struct slot, const void __user * buf, size_t len, size_t * co
         log_err("Cannot copy from user space");
         return ret;
     }
-
+    log_info("Copied from user (ret %d), (copied %d)", ret, *copied);
+    return 0;
 }
-**/
-//int slot_to_user(struct slot, void __user * buf, size_t len, size_t * copied);
+
+int slot_to_user(slot_t* slot, void __user * buf, size_t len, unsigned int* copied){
+    int ret;
+
+    ret = kfifo_to_user(&slot->fifo, buf, len, copied);
+    if(ret){
+        log_err("Error while copying to user buffer");
+        return ret;
+    }
+    log_info("Copied %d byte to user buffer", *copied);
+    return 0;
+}

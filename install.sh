@@ -1,5 +1,5 @@
 #!/bin/bash
 
-grep "mailslot" /proc/modules
+grep "mailslots" /proc/modules
 [ $? -eq 0 ] && make unregister
 make register

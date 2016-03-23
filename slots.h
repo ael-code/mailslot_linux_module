@@ -27,8 +27,8 @@ void slot_free(slot_t*);
 
 int slot_initialized(slot_t*);
 
-int slot_from_user(slot_t*, const void __user *, size_t, size_t *);
+int slot_from_user(slot_t*, const void __user *, size_t, unsigned int *);
 
-int slot_to_user(slot_t*, void __user *, size_t, size_t *);
+int slot_to_user(slot_t*, void __user *, size_t, unsigned int *);
 
 #endif

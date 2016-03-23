@@ -7,7 +7,6 @@
 #include <linux/kfifo.h>
 
 
-
 static const char* M_NAME = "mailslot";
 static unsigned int major = 0;
 
@@ -40,8 +39,8 @@ int init_module(void) {
 
 ssize_t mailslot_read(struct file * f, char __user * user, size_t size, loff_t * fpos){
     int ret;
-    //unsigned int copied;
-    unsigned minor;
+    unsigned int copied;
+    unsigned int minor;
     slot_t* currSlot;
 
     minor = iminor(f->f_inode);
@@ -59,22 +58,19 @@ ssize_t mailslot_read(struct file * f, char __user * user, size_t size, loff_t *
         log_err("Cannot read mail, destination buffer too short");
         return -EIO;
     }
-/**
-    ret = kfifo_to_user(currSlot, user, size, &copied);
+
+    ret = slot_to_user(currSlot, user, size, &copied);
     if(ret){
-        log_err("Error while reading");
+        log_err("Error while copying to user buffer");
         return ret;
     }
-    log_info("Copied %d byte to user buffer", copied);
     return copied;
-**/
-    return 0;
 }
 
 ssize_t mailslot_write(struct file * f, const char __user * user, size_t size, loff_t * loff_t){
     int ret;
-    //unsigned int copied;
-    unsigned minor;
+    unsigned int copied;
+    unsigned int minor;
     slot_t* currSlot;
 
     minor = iminor(f->f_inode);
@@ -89,23 +85,13 @@ ssize_t mailslot_write(struct file * f, const char __user * user, size_t size, l
             return ret;
         }
     }
-/**
-    ret = kfifo_from_user(currSlot, user, size, &copied);
-    if( (!ret) && (!copied) ){
-        log_err("Not enough space available on slot");
-        return -ENOSPC;
-    }
+    ret = slot_from_user(currSlot, user, size, &copied);
     if(ret){
-        log_err("Cannot copy from user space");
+        log_err("Error while copying from user buffer");
         return ret;
     }
-    log_info("Copied from user (ret %d), (copied %d)", ret, copied);
-
     return copied;
-**/
-    return 0;
 }
-
 
 void cleanup_module(void) {
     int i = 0;

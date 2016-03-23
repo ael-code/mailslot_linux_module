@@ -1,8 +1,8 @@
-MODULE_NAME=mailslot
+MODULE_NAME=mailslots
 KVERSION = $(shell uname -r)
 
 obj-m = $(MODULE_NAME).o
-$(MODULE_NAME)-y := slots.o
+$(MODULE_NAME)-y := mailslot.o slots.o
 
 all:
 	make -C /lib/modules/$(KVERSION)/build M=$(PWD) modules
