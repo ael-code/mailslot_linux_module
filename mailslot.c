@@ -14,6 +14,7 @@ static slot_t slots[MAX_SLOTS];
 static size_t SLOT_SIZE = 4194304;
 
 struct file_operations fops = {
+    .open = mailslot_open,
     .read = mailslot_read,
     .write = mailslot_write
 };
@@ -36,6 +37,26 @@ int init_module(void) {
     return 0;
 }
 
+int mailslot_open(struct inode * inode, struct file * filp){
+    unsigned int minor;
+    int ret;
+    slot_t* currSlot;
+
+    minor = iminor(filp->f_inode);
+    currSlot = slots+minor;
+
+    if(filp->f_flags & O_ACCMODE & ( O_WRONLY | O_RDWR)){
+        if( !slot_initialized(currSlot) ){
+            log_info("Initializing slot: %d", minor);
+            ret = slot_init(currSlot, SLOT_SIZE);
+            if(ret){
+                log_err("Cannot initialize slot");
+                return ret;
+            }
+        }
+    }
+    return 0;
+}
 
 ssize_t mailslot_read(struct file * f, char __user * user, size_t size, loff_t * fpos){
     int ret;
@@ -71,14 +92,6 @@ ssize_t mailslot_write(struct file * f, const char __user * user, size_t size, l
     currSlot = slots+minor;
     log_info("Write operation on slot %d, of bytes %u", minor, (unsigned int)size);
 
-    if( !slot_initialized(currSlot) ){
-        log_info("Initializing slot: %d", minor);
-        ret = slot_init(currSlot, SLOT_SIZE);
-        if(ret){
-            log_err("Cannot initialize slot");
-            return ret;
-        }
-    }
     ret = slot_from_user(currSlot, user, size, &copied);
     if(ret){
         log_err("Error while copying from user buffer");
