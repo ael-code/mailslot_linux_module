@@ -37,6 +37,11 @@ int slot_initialized(slot_t* slot){
 int slot_from_user(slot_t* slot, const void __user * buf, size_t len, unsigned int* copied){
     int ret;
 
+    if(len > RECORD_SIZE){
+        log_err("Request size is %d but the maximum allowed is %d", (unsigned int)len, RECORD_SIZE);
+        return -EIO;
+    }
+
     /** Critical section **/
     if(mutex_lock_interruptible(&slot->w_lock))
         return -ERESTARTSYS;
@@ -64,6 +69,12 @@ int slot_to_user(slot_t* slot, void __user * buf, size_t len, unsigned int* copi
     /** Critical section **/
     if(mutex_lock_interruptible(&slot->r_lock))
         return -ERESTARTSYS;
+
+    if( kfifo_peek_len(&slot->fifo) > len){
+        mutex_unlock(&slot->w_lock);
+        log_err("Cannot read mail, destination buffer too short");
+        return -EIO;
+    }
 
     ret = kfifo_to_user(&slot->fifo, buf, len, copied);
 

@@ -53,12 +53,6 @@ ssize_t mailslot_read(struct file * f, char __user * user, size_t size, loff_t *
         return 0;
     }
 
-    log_debug("next item length: %d", kfifo_peek_len(&currSlot->fifo));
-    if( kfifo_peek_len(&currSlot->fifo) > size){
-        log_err("Cannot read mail, destination buffer too short");
-        return -EIO;
-    }
-
     ret = slot_to_user(currSlot, user, size, &copied);
     if(ret){
         log_err("Error while copying to user buffer");

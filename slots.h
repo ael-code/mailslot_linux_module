@@ -9,7 +9,9 @@
 
 #include "log.h"
 
-#define MAX_SLOTS (1 << MINORBITS)
+#define MAX_SLOTS ((1 << MINORBITS) -1)
+//2 char
+#define RECORD_SIZE ((1 << 16) -1)
 
 typedef struct kfifo_rec_ptr_2 kfifo_rec;
 
