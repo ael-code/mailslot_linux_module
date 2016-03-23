@@ -1,10 +1,7 @@
 #include "mailslot.h"
 
 #include <linux/fs.h>
-#include <linux/slab.h>
 #include <linux/errno.h>
-#include <asm/uaccess.h>
-#include <linux/kfifo.h>
 
 
 static const char* M_NAME = "mailslot";
@@ -18,24 +15,6 @@ struct file_operations fops = {
     .read = mailslot_read,
     .write = mailslot_write
 };
-
-int init_module(void) {
-    int res;
-
-    log_debug("registering module");
-    log_debug("Maximum mailslots allowed: %d", MAX_SLOTS);
-    res = register_chrdev(major, M_NAME, &fops);
-    if (res < 0) {
-        log_err("can’t register char devices driver");
-        return res;
-    }
-    if (major == 0){
-        major = res;
-        log_info("assigned major number: %d", major);
-    }
-
-    return 0;
-}
 
 int mailslot_open(struct inode * inode, struct file * filp){
     unsigned int minor;
@@ -98,6 +77,24 @@ ssize_t mailslot_write(struct file * f, const char __user * user, size_t size, l
         return ret;
     }
     return copied;
+}
+
+int init_module(void) {
+    int res;
+
+    log_debug("registering module");
+    log_debug("Maximum mailslots allowed: %d", MAX_SLOTS);
+    res = register_chrdev(major, M_NAME, &fops);
+    if (res < 0) {
+        log_err("can’t register char devices driver");
+        return res;
+    }
+    if (major == 0){
+        major = res;
+        log_info("assigned major number: %d", major);
+    }
+
+    return 0;
 }
 
 void cleanup_module(void) {
