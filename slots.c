@@ -37,8 +37,16 @@ int slot_initialized(slot_t* slot){
 int slot_from_user(slot_t* slot, const void __user * buf, size_t len, unsigned int* copied){
     int ret;
 
+    /** Critical section **/
+    if(mutex_lock_interruptible(&slot->w_lock))
+        return -ERESTARTSYS;
+
     ret = kfifo_from_user(&slot->fifo, buf, len, copied);
-    if( (!ret) && (!copied) ){
+
+    mutex_unlock(&slot->w_lock);
+    /** End critical section **/
+
+    if( (!ret) & (!copied) ){
         log_err("Not enough space available on slot");
         return -ENOSPC;
     }
@@ -53,7 +61,15 @@ int slot_from_user(slot_t* slot, const void __user * buf, size_t len, unsigned i
 int slot_to_user(slot_t* slot, void __user * buf, size_t len, unsigned int* copied){
     int ret;
 
+    /** Critical section **/
+    if(mutex_lock_interruptible(&slot->r_lock))
+        return -ERESTARTSYS;
+
     ret = kfifo_to_user(&slot->fifo, buf, len, copied);
+
+    mutex_unlock(&slot->r_lock);
+    /** End critical section **/
+
     if(ret){
         log_err("Error while copying to user buffer");
         return ret;
