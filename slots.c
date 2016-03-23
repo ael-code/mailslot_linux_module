@@ -34,6 +34,9 @@ int slot_initialized(slot_t* slot){
     return kfifo_initialized(&slot->fifo);
 }
 
+/**
+* Read a message from the given mailslot and copy it to the user buffer @buf.
+*/
 int slot_from_user(slot_t* slot, const void __user * buf, size_t len, unsigned int* copied){
     int ret;
 
@@ -63,6 +66,9 @@ int slot_from_user(slot_t* slot, const void __user * buf, size_t len, unsigned i
     return 0;
 }
 
+/**
+* Write a message in the given mailslot taken from the user buffer @buf.
+*/
 int slot_to_user(slot_t* slot, void __user * buf, size_t len, unsigned int* copied){
     int ret;
 
