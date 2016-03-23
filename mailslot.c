@@ -11,7 +11,7 @@ static const char* M_NAME = "mailslot";
 static unsigned int major = 0;
 
 static slot_t slots[MAX_SLOTS];
-static size_t SLOT_SIZE = 1024;
+static size_t SLOT_SIZE = 4194304;
 
 struct file_operations fops = {
     .read = mailslot_read,
