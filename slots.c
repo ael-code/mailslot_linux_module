@@ -46,7 +46,7 @@ int slot_from_user(slot_t* slot, const void __user * buf, size_t len, unsigned i
     mutex_unlock(&slot->w_lock);
     /** End critical section **/
 
-    if( (!ret) & (!copied) ){
+    if( ! (ret | *copied) ){ //if both are 0
         log_err("Not enough space available on slot");
         return -ENOSPC;
     }
