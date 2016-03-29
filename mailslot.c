@@ -3,7 +3,6 @@
 #include <linux/fs.h>
 #include <linux/errno.h>
 
-
 static const char* M_NAME = "mailslot";
 static unsigned int major = 0;
 
@@ -20,11 +19,13 @@ int mailslot_open(struct inode * inode, struct file * filp){
     unsigned int minor;
     int ret;
     slot_t* currSlot;
+    mode_t accmode;
 
     minor = iminor(filp->f_inode);
     currSlot = slots+minor;
 
-    if(filp->f_flags & O_ACCMODE & ( O_WRONLY | O_RDWR)){
+    accmode = filp->f_flags & O_ACCMODE;
+    if( (accmode & ( O_WRONLY | O_RDWR)) || !(accmode & O_NONBLOCK)){
         if( !slot_initialized(currSlot) ){
             log_info("Initializing slot: %d", minor);
             ret = slot_init(currSlot, SLOT_SIZE);
@@ -53,7 +54,7 @@ ssize_t mailslot_read(struct file * f, char __user * user, size_t size, loff_t *
         return 0;
     }
 
-    ret = slot_to_user(currSlot, user, size, &copied);
+    ret = slot_to_user(currSlot, user, size, &copied, f->f_flags & O_NONBLOCK);
     if(ret){
         log_err("Error while copying to user buffer");
         return ret;

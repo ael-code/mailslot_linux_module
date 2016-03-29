@@ -6,6 +6,8 @@
 #include <linux/kfifo.h>
 #include <linux/kdev_t.h>
 #include <linux/mutex.h>
+#include <linux/sched.h>
+#include <linux/wait.h>
 
 #include "log.h"
 
@@ -18,6 +20,7 @@ typedef struct kfifo_rec_ptr_2 kfifo_rec;
 struct slot{
     struct mutex r_lock;
     struct mutex w_lock;
+    wait_queue_head_t inq;
     kfifo_rec fifo;
 };
 
@@ -31,6 +34,6 @@ int slot_initialized(slot_t*);
 
 int slot_from_user(slot_t*, const void __user *, size_t, unsigned int *);
 
-int slot_to_user(slot_t*, void __user *, size_t, unsigned int *);
+int slot_to_user(slot_t*, void __user *, size_t, unsigned int *, unsigned short);
 
 #endif

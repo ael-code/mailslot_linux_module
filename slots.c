@@ -20,6 +20,9 @@ int slot_init(slot_t* slot, size_t slot_size){
     mutex_init(&slot->r_lock);
     mutex_init(&slot->w_lock);
 
+    log_debug("Initializing inqueue");
+    init_waitqueue_head(&slot->inq);
+
     return 0;
 }
 
@@ -62,6 +65,8 @@ int slot_from_user(slot_t* slot, const void __user * buf, size_t len, unsigned i
         log_err("Cannot copy from user space");
         return ret;
     }
+
+    wake_up_interruptible(&slot->inq);
     log_info("Copied from user (ret %d), (copied %d)", ret, *copied);
     return 0;
 }
@@ -69,15 +74,28 @@ int slot_from_user(slot_t* slot, const void __user * buf, size_t len, unsigned i
 /**
 * Read a message from the given mailslot and copy it to the user buffer @buf.
 */
-int slot_to_user(slot_t* slot, void __user * buf, size_t len, unsigned int* copied){
+int slot_to_user(slot_t* slot, void __user * buf, size_t len, unsigned int* copied, unsigned short non_block){
     int ret;
+
 
     /** Critical section **/
     if(mutex_lock_interruptible(&slot->r_lock))
         return -ERESTARTSYS;
 
+    while (kfifo_is_empty(&slot->fifo)) { // nothing to read
+        mutex_unlock(&slot->r_lock); //release the lock
+        if (non_block)
+            return -EAGAIN;
+        log_debug("Empty mailslots: going to sleep");
+        if (wait_event_interruptible(slot->inq, (!kfifo_is_empty(&slot->fifo)) ))
+            return -ERESTARTSYS; // signal: tell the fs layer to handle it
+        // otherwise loop, but first reacquire the lock
+        if(mutex_lock_interruptible(&slot->r_lock))
+            return -ERESTARTSYS;
+    }
+
     if( kfifo_peek_len(&slot->fifo) > len){
-        mutex_unlock(&slot->w_lock);
+        mutex_unlock(&slot->r_lock);
         log_err("Cannot read mail, destination buffer too short");
         return -EIO;
     }
