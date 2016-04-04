@@ -8,6 +8,7 @@
 #include <linux/mutex.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
+#include <linux/slab.h>
 
 #include "log.h"
 
@@ -35,5 +36,7 @@ int slot_initialized(slot_t*);
 int slot_from_user(slot_t*, const void __user *, size_t, unsigned int *);
 
 int slot_to_user(slot_t*, void __user *, size_t, unsigned int *, unsigned short);
+
+int slot_resize(slot_t*, size_t);
 
 #endif

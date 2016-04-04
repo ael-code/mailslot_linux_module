@@ -26,6 +26,56 @@ int slot_init(slot_t* slot, size_t slot_size){
     return 0;
 }
 
+int slot_resize(slot_t* slot, size_t slot_size){
+    int ret;
+    void* old_buffer;
+    void* new_buffer;
+    kfifo_rec* fifo = &slot->fifo;
+
+    slot_size = roundup_pow_of_two(slot_size);
+    if (slot_size < 2) {
+        log_err("Cannot shrink: invalid dimension");
+        return -1;
+    }
+
+    if( !kfifo_initialized(fifo) ){
+        log_err("Cannot resize uninitialized kfifo");
+        return -1;
+    }
+
+    if(mutex_lock_interruptible(&slot->w_lock) || mutex_lock_interruptible(&slot->r_lock))
+        return -ERESTARTSYS;
+
+    if(slot_size < kfifo_len(fifo)){
+        mutex_unlock(&slot->r_lock); mutex_unlock(&slot->w_lock);
+        log_err("Cannot shrink to a dimension less then the used one");
+        return -1;
+    }
+
+    new_buffer = kmalloc(slot_size, GFP_KERNEL);
+    if(!new_buffer){
+        mutex_unlock(&slot->r_lock); mutex_unlock(&slot->w_lock);
+        log_err("Cannot allocate new buffer");
+        return -ENOMEM;
+    }
+
+    log_debug("Shrinking old data -> size: %u, len: %u, in: %u, out: %u", kfifo_size(fifo), kfifo_len(fifo), fifo->kfifo.in, fifo->kfifo.out);
+
+    old_buffer = fifo->kfifo.data;
+    ret = __kfifo_out_peek(&(fifo->kfifo), new_buffer, kfifo_size(fifo));
+    fifo->kfifo.data = new_buffer;
+    fifo->kfifo.in = kfifo_len(fifo);
+    fifo->kfifo.out = 0;
+    fifo->kfifo.mask = slot_size - 1;
+
+    log_debug("Shrinking new data -> size: %u, len: %u, in: %u, out: %u", kfifo_size(fifo), kfifo_len(fifo), fifo->kfifo.in, fifo->kfifo.out);
+
+    mutex_unlock(&slot->r_lock); mutex_unlock(&slot->w_lock);
+
+    kfree(old_buffer);
+    return 0;
+}
+
 void slot_free(slot_t* slot){
     //It is necessary to wait for all reader/writer to finish?
     mutex_destroy(&slot->r_lock);

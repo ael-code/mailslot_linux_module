@@ -82,6 +82,7 @@ ssize_t mailslot_write(struct file * f, const char __user * user, size_t size, l
 
 long mailslot_unlocked_ioctl(struct file * f, unsigned int cmd, unsigned long arg){
     unsigned int want_non_blocking;
+    unsigned int size;
     long ret = 0;
 
     switch(cmd){
@@ -98,6 +99,14 @@ long mailslot_unlocked_ioctl(struct file * f, unsigned int cmd, unsigned long ar
         case MAILSLOT_IOC_IS_NONBLOCKING:
             log_debug("Requesting blocking mode: %u", f->f_flags & O_NONBLOCK);
             ret = put_user(f->f_flags & O_NONBLOCK, (unsigned int __user *)arg);
+            break;
+
+        case MAILSLOT_IOC_RESIZE:
+            if ((ret = get_user(size, (unsigned int __user *)arg)) != 0)
+                break;
+            log_debug("Request to resize: %u", size);
+            ret = slot_resize(slots+iminor(f->f_inode), size);
+            if(ret) log_err("Failed to resize");
             break;
 
         default: /* redundant, as cmd was checked against MAXNR */
