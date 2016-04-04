@@ -12,6 +12,7 @@ struct file_operations fops = {
     .open = mailslot_open,
     .read = mailslot_read,
     .write = mailslot_write,
+    .release = mailslot_release,
     .unlocked_ioctl = mailslot_unlocked_ioctl
 };
 
@@ -21,6 +22,7 @@ int mailslot_open(struct inode * inode, struct file * filp){
     slot_t* currSlot;
     mode_t accmode;
 
+    try_module_get(THIS_MODULE);
     minor = iminor(filp->f_inode);
     currSlot = slots+minor;
 
@@ -79,6 +81,12 @@ ssize_t mailslot_write(struct file * f, const char __user * user, size_t size, l
     }
     return copied;
 }
+
+int mailslot_release(struct inode * inode, struct file * f){
+    module_put(THIS_MODULE);
+    return 0;
+}
+
 
 long mailslot_unlocked_ioctl(struct file * f, unsigned int cmd, unsigned long arg){
     unsigned int want_non_blocking;
