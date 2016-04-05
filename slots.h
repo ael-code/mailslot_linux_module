@@ -9,7 +9,7 @@
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/slab.h>
-
+#include <linux/spinlock.h>
 #include "log.h"
 
 #define MAX_SLOTS ((1 << MINORBITS) -1)
@@ -19,6 +19,7 @@
 typedef struct kfifo_rec_ptr_2 kfifo_rec;
 
 struct slot{
+    spinlock_t init_lock;
     struct mutex r_lock;
     struct mutex w_lock;
     wait_queue_head_t inq;

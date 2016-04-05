@@ -28,14 +28,17 @@ int mailslot_open(struct inode * inode, struct file * filp){
 
     accmode = filp->f_flags & O_ACCMODE;
     if( (accmode & ( O_WRONLY | O_RDWR)) || !(accmode & O_NONBLOCK)){
+        spin_lock(&currSlot->init_lock);
         if( !slot_initialized(currSlot) ){
             log_info("Initializing slot: %d", minor);
             ret = slot_init(currSlot, DEFAULT_SLOT_SIZE);
             if(ret){
+                spin_unlock(&currSlot->init_lock);
                 log_err("Cannot initialize slot");
                 return ret;
             }
         }
+        spin_unlock(&currSlot->init_lock);
     }
     return 0;
 }
@@ -126,6 +129,7 @@ long mailslot_unlocked_ioctl(struct file * f, unsigned int cmd, unsigned long ar
 
 int init_module(void) {
     int res;
+    int i;
 
     log_debug("registering module");
     log_debug("Maximum mailslots allowed: %d", MAX_SLOTS);
@@ -139,6 +143,10 @@ int init_module(void) {
         log_info("assigned major number: %d", major);
     }
 
+    log_debug("Initializing init spinlocks");
+    for(i = 0; i < MAX_SLOTS; i++){
+        spin_lock_init(&(slots[i].init_lock));
+    }
     return 0;
 }
 
